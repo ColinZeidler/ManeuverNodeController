@@ -330,11 +330,18 @@ namespace ManeuverNodeController
             // display orbits properly
             var referenceOrbit = game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit;
             // This block can cause editor UI to black out it seems
-            //if (currentNodePos > 0)
-            //{
-            //    referenceOrbit = activeNodes[currentNodePos - 1].ManeuverTrajectoryPatch;
-            //}
-            GUILayout.Label($"{Math.Truncate((currentNode.Time - game.UniverseModel.UniversalTime) / referenceOrbit.period).ToString("n0")} orbit(s) ");
+            try
+            {
+                if (currentNodePos > 0)
+                {
+                    referenceOrbit = activeNodes[currentNodePos - 1].ManeuverTrajectoryPatch;
+                }
+                GUILayout.Label($"{Math.Truncate((currentNode.Time - game.UniverseModel.UniversalTime) / referenceOrbit.period).ToString("n0")} orbit(s) ");
+            }
+            catch
+            {
+                GUILayout.Label($"{Math.Truncate((currentNode.Time - game.UniverseModel.UniversalTime) / game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.period).ToString("n0")} orbit(s) ");
+            }
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
