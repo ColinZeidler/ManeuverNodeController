@@ -327,7 +327,14 @@ namespace ManeuverNodeController
             GUILayout.BeginHorizontal();
             GUILayout.Label("Maneuver Node in: ");
             GUILayout.FlexibleSpace();
-            GUILayout.Label($"{Math.Truncate((currentNode.Time - game.UniverseModel.UniversalTime) / game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.period).ToString("n0")} orbit(s) ");
+            // display orbits properly
+            var referenceOrbit = game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit;
+            // This block can cause editor UI to black out it seems
+            //if (currentNodePos > 0)
+            //{
+            //    referenceOrbit = activeNodes[currentNodePos - 1].ManeuverTrajectoryPatch;
+            //}
+            GUILayout.Label($"{Math.Truncate((currentNode.Time - game.UniverseModel.UniversalTime) / referenceOrbit.period).ToString("n0")} orbit(s) ");
             GUILayout.EndHorizontal();
 
             GUILayout.BeginHorizontal();
@@ -460,21 +467,49 @@ namespace ManeuverNodeController
                 }
                 else if (orbitDec)
                 {
-                    if (game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.period < (currentNode.Time- game.UniverseModel.UniversalTime))
+                    double referenceOrbitPeriod;
+                    if (currentNodePos == 0)
                     {
-                        currentNode.Time -= game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.period;
+                        referenceOrbitPeriod = game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.period;
+                    }
+                    else
+                    {
+                        var prevNode = activeNodes[currentNodePos - 1];
+                        referenceOrbitPeriod = prevNode.ManeuverTrajectoryPatch.period;
+                    }
+
+                    if (referenceOrbitPeriod < (currentNode.Time - game.UniverseModel.UniversalTime))
+                    {
+                        currentNode.Time -= referenceOrbitPeriod;
+                        // do we need to bump the time for all child maneuvers too?
                     }
                 }
                 else if (orbitInc)
                 {
-                    currentNode.Time += game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.period;
+                    double referenceOrbitPeriod;
+                    if (currentNodePos == 0)
+                    {
+                        referenceOrbitPeriod = game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.period;
+                    }
+                    else
+                    {
+                        var prevNode = activeNodes[currentNodePos - 1];
+                        referenceOrbitPeriod = prevNode.ManeuverTrajectoryPatch.period;
+                    }
+                    // do we need to bump the time for all child maneuvers too?
+                    currentNode.Time += referenceOrbitPeriod;
                 }
                 else if(applySnapOption)    //apply selected snap option
                 {
+                    var referenceOrbit = game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit;
+                    if (currentNodePos > 0)
+                    {
+                        referenceOrbit = activeNodes[currentNodePos - 1].ManeuverTrajectoryPatch;
+                    }
                     if (selectedSnapOption == SnapOptions.Apoapsis)
-                        currentNode.Time = game.UniverseModel.UniversalTime + game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.TimeToAp;
+                        currentNode.Time = game.UniverseModel.UniversalTime + referenceOrbit.TimeToAp;
                     else if (selectedSnapOption == SnapOptions.Periapsis)
-                        currentNode.Time = game.UniverseModel.UniversalTime + game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID).Orbit.TimeToPe;
+                        currentNode.Time = game.UniverseModel.UniversalTime + referenceOrbit.TimeToPe;
                 }
                 else if (activeNodeDec)
                 {
@@ -487,8 +522,31 @@ namespace ManeuverNodeController
                     return; //Don't want to update or refresh after changing what node we are using
                 }
 
-                game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID)?.SimulationObject.FindComponent<ManeuverPlanComponent>().UpdateChangeOnNode(currentNode, burnParams);
-                game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID)?.SimulationObject.FindComponent<ManeuverPlanComponent>().RefreshManeuverNodeState(currentNodePos);
+                ManeuverPlanComponent maneuverPlan = game.UniverseModel.FindVesselComponent(currentNode.RelatedSimID)?.SimulationObject.FindComponent<ManeuverPlanComponent>();
+                if (pAbs || pInc1 || pInc2 || pDec1 || pDec2 || nAbs || nInc1 || nInc2 || nDec1 || nDec2 || rAbs || rInc1 || rInc2 || rDec1 || rDec2)
+                {
+                    maneuverPlan.UpdateChangeOnNode(currentNode, burnParams);
+                }
+
+                // call UpdateTimeOnNode if updating when the node occurs.
+                if (applySnapOption || orbitInc || orbitDec || timeDec1 || timeDec2 || timeInc1 || timeInc2)
+                {
+                    maneuverPlan.UpdateTimeOnNode(currentNode, currentNode.Time);
+                }
+
+
+                // We should be updating all child nodes details when we change a node
+                for (int i = currentNodePos + 1; i < activeNodes.Count(); i++)
+                {
+                    var childNode = activeNodes[i];
+                    maneuverPlan.UpdateNodeDetails(childNode);
+                }
+
+                // refresh node and all children
+                for (int i = currentNodePos; i < activeNodes.Count(); i++)
+                {
+                    maneuverPlan.RefreshManeuverNodeState(i);
+                }
             }
         }
     }   
