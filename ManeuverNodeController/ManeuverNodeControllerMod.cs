@@ -148,6 +148,25 @@ namespace ManeuverNodeController
             }
             currentNode = (maneuverNodeCount > 0) ? activeNodes[currentNodePos] : null;
 
+
+            GUILayout.BeginVertical();
+            var exitRect = new Rect(windowRect.width - 18, 2, 16, 16);
+            string exitFont = "<size=8>x</size>";
+            if (exitRect.Contains(Event.current.mousePosition))
+            {
+                exitFont = "<color=red><size=8>x</size></color>";
+            }
+
+            if (GUI.Button(exitRect, exitFont))
+            {
+                if (interfaceEnabled)
+                {
+                    ToggleButton(false);
+                }
+            }
+            GUILayout.EndVertical();
+
+
             GUILayout.BeginVertical();
 
             if (currentNode == null)
@@ -296,9 +315,13 @@ namespace ManeuverNodeController
 
             GUILayout.Box("", horizontalDivider);
 
-            SnapSelectionGUI();
+            if (currentNodePos == 0)
+            {
+                // disable snap on 2nd + node, since it doesn't behave correctly
+                SnapSelectionGUI();
 
-            GUILayout.Box("", horizontalDivider);
+                GUILayout.Box("", horizontalDivider);
+            }
 
             GUILayout.BeginHorizontal();
             GUILayout.Label("Small Time Step (seconds): ", GUILayout.Width(2*windowWidth / 3));
